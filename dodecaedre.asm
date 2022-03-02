@@ -13,6 +13,7 @@ extern XDrawLine
 extern XNextEvent
 
 ; external functions from stdio library (ld-linux-x86-64.so.2)    
+extern printf
 extern exit
 
 %define	StructureNotifyMask	131072
@@ -42,9 +43,36 @@ height:        	resd	1
 window:		resq	1
 gc:		resq	1
 
+x1:		resd	1
+y1:		resd	1
+x2:		resd	1
+y2:		resd	1
+
+pointsX:	resd	12
+pointsY:	resd	12
+
+cosinus:	resd	360
+sinus:		resd	360
+
 section .data
 
+formatAffiche:	db 	"val %d: %f",10,0
+formatTest:	db	"VAL: %d",10,0
+
+Xoff:		dd	100.0
+Yoff:		dd	100.0
+Zoff:		dd	1.0
+
+distanceFocale:	dd	1.0
+
+indexPoints:	dd	0
+indexFaces:	dd	0
+indexLignes:	dd	0
+
 event:		times	24 dq 0
+
+angle:		dd	0
+demiangle:	dd	180
 
 ; Un point par ligne sous la forme X,Y,Z
 dodec:	dd	0.0,50.0,80.901699		; point 0
@@ -90,12 +118,30 @@ faces:	dd	0,8,9,0
 
 section .text
 
+calculs_trigo:
+
+	boucle_trigo:
+		fldpi
+		fimul dword[angle]
+		fidiv dword[demiangle]
+		fsincos
+		mov ecx,dword[angle]
+		fstp dword[cosinus+ecx*DWORD]
+		fstp dword[sinus+ecx*DWORD]
+		inc dword[angle]
+		cmp dword[angle],360
+		jbe boucle_trigo
+
+ret
+
 
 ;##################################################
 ;########### PROGRAMME PRINCIPAL ##################
 ;##################################################
 
 main:
+
+call calculs_trigo
 
 ;####################################
 ;## Code de création de la fenêtre ##
@@ -168,9 +214,154 @@ jmp boucle
 prog_principal:
 
 
+;mov rcx, 0
+;boucleAffiche:
+;	mov rdi,formattest
+;	mov rsi,0
+;	mov esi, ecx
+;	cvtss2sd xmm0, dword[dodec+ecx*DWORD]
+;	mov rax,1
+;	call printf
+;
+;	mov rdi,formattest
+;	mov rsi,0
+;	inc ecx
+;	mov esi, ecx
+;	cvtss2sd xmm0, dword[dodec+ecx*DWORD]
+;	mov rax,1
+;	call printf
+;	cmp ecx,4
+
+;	jne boucleAffiche
+
+;mov dword[index],0
+;boucleTest:
+;	mov rdi,formatAffiche
+;	mov rsi,0
+;	mov esi,dword[index]
+;	mov ecx,dword[index]
+;	cvtss2sd xmm0, dword[dodec+ecx*DWORD]
+;	mov rax,1
+;	call printf
+;	
+;	inc dword[index]
+;
+;	cmp dword[index],5
+;	jb boucleTest
+
+
+mov dword[indexPoints],0
+boucleCalcul:
+	mov	ecx,dword[indexPoints] ; ecx a l'index des points
+	
+	imul	ebx, ecx, 3
+	add	ebx, 2 ; contient l'index du point Z
+	
+	movss	xmm1,dword[dodec + ebx * DWORD] ; points Z
+	addss	xmm1,dword[Zoff]; partie (Z+Zoff) du calcul dans xmm1
+
+	imul	ebx, ecx, 3
+	add	ebx, 0 ; contient l'index du point X
+
+	movss	xmm0,dword[dodec + ebx * DWORD] ; points X
+	mulss	xmm0,dword[distanceFocale]
+	
+	divss	xmm0,xmm1
+	addss	xmm0,dword[Xoff]
+
+	movss	dword[pointsX + ecx * DWORD],xmm0 ; fin du calcul du point X et stockage dans le tableau pointsX
+
+	imul	ebx, ecx, 3
+	add	ebx, 1 ; contient l'index du point Z
+
+	movss	xmm0,dword[dodec + ebx * DWORD] ; points Y
+	mulss	xmm0,dword[distanceFocale]
+	
+	divss	xmm0,xmm1
+	addss	xmm0,dword[Yoff]
+
+	movss	dword[pointsY + ecx * DWORD],xmm0 ; fin du calcul du point X et stockage dans le tableau pointsY
+
+
+	inc	dword[indexPoints]
+
+	cmp	dword[indexPoints],12 ; 12 points à boucler
+	jb	boucleCalcul
+	
+	
+
+
+mov dword[indexFaces],0
+
+boucleFaces:
+	mov	r10d,dword[indexFaces] ; r10d a l'index des faces
+
+
+	mov	dword[indexLignes],0
+
+	boucleLignes:
+		mov 		r11d,dword[indexLignes] ; r11d a l'index des lignes
+
+		imul		r12d, r10d, 4
+		add		r12d, r11d ; contient l'index du premier point
+
+		mov		eax,dword[faces + r12d * DWORD]
+
+		cvtss2si	ebx,dword[pointsX + eax * DWORD] ; x1
+		mov		dword[x1], ebx
+		cvtss2si	ebx,dword[pointsY + eax * DWORD] ; y1
+		mov		dword[y1], ebx
+
+
+		add		r12d, 1 ; contient l'index du premier point
+
+		mov		eax,dword[faces + r12d * DWORD] ; eax contient l'index du deuxième point
+
+		cvtss2si	ebx,dword[pointsX + eax * DWORD] ; x2
+		mov		dword[x2], ebx
+		cvtss2si	ebx,dword[pointsY + eax * DWORD] ; y2
+		mov		dword[y2], ebx
+
+
+		mov rdi,qword[display_name]
+		mov rsi,qword[window]
+		mov rdx,qword[gc]
+		mov ecx,dword[x1]
+		mov r8d,dword[y1]
+		mov r9d,dword[x2]
+		push qword[y2]
+		call XDrawLine
+
+		inc		dword[indexLignes]
+
+		cmp		dword[indexLignes],3 ; 3 lignes à tracer
+		jb		boucleLignes
+	
+
+
+	inc	dword[indexFaces]
+
+	cmp	dword[indexFaces],20 ; 20 faces à boucler
+	jb	boucleFaces
+
+
+;mov dword[x1],50
+;mov dword[y1],50
+;mov dword[x2],200
+;mov dword[y2],350
+;
+;mov rdi,qword[display_name]
+;mov rsi,qword[window]
+;mov rdx,qword[gc]
+;mov ecx,dword[x1]
+;mov r8d,dword[y1]
+;mov r9d,dword[x2]
+;push qword[y2]
+;call XDrawLine
+
 ;##############################################
 ;##	Ici se termine VOTRE programme principal ##
-;##############################################																																																																																																																																	     		     		jb boucle
+;##############################################
 jmp flush
 
 
