@@ -59,11 +59,11 @@ section .data
 formatAffiche:	db 	"val %d: %f",10,0
 formatTest:	db	"VAL: %d",10,0
 
-Xoff:		dd	100.0
-Yoff:		dd	100.0
-Zoff:		dd	1.0
+Xoff:		dd	200.0
+Yoff:		dd	200.0
+Zoff:		dd	200.0
 
-distanceFocale:	dd	1.0
+distanceFocale:	dd	100.0
 
 indexPoints:	dd	0
 indexFaces:	dd	0
@@ -141,7 +141,7 @@ ret
 
 main:
 
-call calculs_trigo
+;call calculs_trigo
 
 ;####################################
 ;## Code de création de la fenêtre ##
@@ -234,21 +234,6 @@ prog_principal:
 
 ;	jne boucleAffiche
 
-;mov dword[index],0
-;boucleTest:
-;	mov rdi,formatAffiche
-;	mov rsi,0
-;	mov esi,dword[index]
-;	mov ecx,dword[index]
-;	cvtss2sd xmm0, dword[dodec+ecx*DWORD]
-;	mov rax,1
-;	call printf
-;	
-;	inc dword[index]
-;
-;	cmp dword[index],5
-;	jb boucleTest
-
 
 mov dword[indexPoints],0
 boucleCalcul:
@@ -260,8 +245,8 @@ boucleCalcul:
 	movss	xmm1,dword[dodec + ebx * DWORD] ; points Z
 	addss	xmm1,dword[Zoff]; partie (Z+Zoff) du calcul dans xmm1
 
-	imul	ebx, ecx, 3
-	add	ebx, 0 ; contient l'index du point X
+	imul	ebx, ecx, 3; contient l'index du point X
+
 
 	movss	xmm0,dword[dodec + ebx * DWORD] ; points X
 	mulss	xmm0,dword[distanceFocale]
@@ -294,7 +279,7 @@ boucleCalcul:
 mov dword[indexFaces],0
 
 boucleFaces:
-	mov	r10d,dword[indexFaces] ; r10d a l'index des faces
+	mov	r14d,dword[indexFaces] ; r14d a l'index des faces
 
 
 	mov	dword[indexLignes],0
@@ -302,7 +287,7 @@ boucleFaces:
 	boucleLignes:
 		mov 		r11d,dword[indexLignes] ; r11d a l'index des lignes
 
-		imul		r12d, r10d, 4
+		imul		r12d, r14d, 4
 		add		r12d, r11d ; contient l'index du premier point
 
 		mov		eax,dword[faces + r12d * DWORD]
@@ -321,6 +306,9 @@ boucleFaces:
 		mov		dword[x2], ebx
 		cvtss2si	ebx,dword[pointsY + eax * DWORD] ; y2
 		mov		dword[y2], ebx
+
+
+
 
 
 		mov rdi,qword[display_name]
